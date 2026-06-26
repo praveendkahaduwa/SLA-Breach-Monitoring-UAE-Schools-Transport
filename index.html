@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Route SLA Intelligence Platform v4</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #0A0D14; color: #E8E6E0; min-height: 100vh; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: #0A0D14; }
+  ::-webkit-scrollbar-thumb { background: #2A3044; border-radius: 2px; }
+
+  .header { background:#0D1018; border-bottom:1px solid #1E2130; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:52px; position:sticky; top:0; z-index:100; }
+  .tag { font-size:9px; letter-spacing:2px; color:#444B5A; text-transform:uppercase; }
+  .panel { background:#0D1018; border:1px solid #1E2130; border-radius:10px; padding:18px; }
+  .panel-title { font-size:12px; font-weight:600; color:#FFFFFF; margin-bottom:4px; }
+  .kpi-card { background:#0D1018; border:1px solid #1E2130; border-radius:10px; padding:14px 16px; cursor:pointer; transition:border-color 0.2s; }
+  .kpi-card:hover { border-color:#3A4060; }
+  .kpi-card.active-red   { border-color:#E74C3C; box-shadow:0 0 20px rgba(231,76,60,0.1); }
+  .kpi-card.active-amber { border-color:#F39C12; box-shadow:0 0 20px rgba(243,156,18,0.1); }
+  .kpi-num { font-size:30px; font-weight:300; color:#FFFFFF; line-height:1.1; }
+  .kpi-label { font-size:9px; letter-spacing:2px; margin-bottom:8px; }
+  .kpi-sub { font-size:10px; margin-top:6px; }
+  .progress-bar { height:3px; background:#1E2130; border-radius:2px; overflow:hidden; margin-top:6px; }
+  .progress-fill { height:100%; border-radius:2px; transition:width 0.5s; }
+  .slicer-bar { background:#0D1018; border:1px solid #1E2130; border-radius:10px; padding:10px 16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .slicer-group { display:flex; align-items:center; gap:5px; }
+  .slicer-label { font-size:9px; color:#444B5A; letter-spacing:1px; text-transform:uppercase; white-space:nowrap; }
+  .slicer-btn { font-size:10px; padding:4px 10px; border-radius:5px; border:1px solid #2A3044; background:transparent; color:#888780; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+  .slicer-btn:hover { border-color:#3A4060; color:#C8C6BE; }
+  .slicer-btn.active        { background:#E74C3C22; border-color:#E74C3C; color:#E74C3C; }
+  .slicer-btn.active-green  { background:#27AE6022; border-color:#27AE60; color:#27AE60; }
+  .slicer-btn.active-blue   { background:#3498DB22; border-color:#3498DB; color:#3498DB; }
+  .divider { width:1px; height:20px; background:#1E2130; flex-shrink:0; }
+  .badge { font-size:9px; padding:2px 7px; border-radius:4px; font-weight:600; letter-spacing:0.5px; }
+  .badge-red   { background:#E74C3C22; color:#E74C3C; border:1px solid #E74C3C44; }
+  .badge-amber { background:#F39C1222; color:#F39C12; border:1px solid #F39C1244; }
+  .badge-green { background:#27AE6022; color:#27AE60; border:1px solid #27AE6044; }
+  .badge-blue  { background:#3498DB22; color:#3498DB; border:1px solid #3498DB44; }
+  .badge-purple{ background:#9B59B622; color:#9B59B6; border:1px solid #9B59B644; }
+  .ai-chip { display:inline-flex; align-items:center; gap:5px; font-size:9px; padding:2px 8px; border-radius:10px; background:#27AE6015; border:1px solid #27AE6033; color:#27AE60; letter-spacing:1px; }
+  .dot-live { width:5px; height:5px; border-radius:50%; background:#27AE60; box-shadow:0 0 5px #27AE60; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+
+  /* Breach detail */
+  .station-row { border:1px solid #1E2130; border-radius:8px; margin-bottom:8px; overflow:hidden; transition:border-color 0.2s; }
+  .station-row:hover { border-color:#2A3044; }
+  .station-row.expanded { border-color:#E74C3C44; }
+  .station-header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; cursor:pointer; background:#0F1420; user-select:none; }
+  .station-header:hover { background:#131825; }
+  .station-body { display:none; background:#0A0D14; }
+  .station-body.open { display:block; }
+  .school-row { border-top:1px solid #1E2130; }
+  .school-header { display:flex; align-items:center; gap:8px; padding:8px 14px 8px 28px; cursor:pointer; background:#0D1018; user-select:none; font-size:11px; }
+  .school-header:hover { background:#0F1420; }
+  .school-body { display:none; background:#0A0D14; }
+  .school-body.open { display:block; }
+  .route-table { width:100%; border-collapse:collapse; }
+  .route-table th { padding:6px 10px 6px 40px; text-align:left; font-size:9px; color:#444B5A; letter-spacing:1px; border-bottom:1px solid #1E2130; font-weight:500; }
+  .route-table th:not(:first-child) { padding-left:10px; }
+  .route-table td { padding:7px 10px 7px 40px; font-size:11px; border-bottom:1px solid #0F1420; color:#888780; }
+  .route-table td:not(:first-child) { padding-left:10px; }
+  .route-table tr:last-child td { border-bottom:none; }
+  .route-table tr:hover td { background:#0F1420; }
+
+  /* Traffic density map */
+  .traffic-cell { width:32px; height:32px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:600; cursor:pointer; transition:transform 0.15s; }
+  .traffic-cell:hover { transform:scale(1.15); z-index:10; position:relative; }
+
+  /* Correlation scatter */
+  .corr-dot { position:absolute; width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%); cursor:pointer; transition:transform 0.15s; }
+  .corr-dot:hover { transform:translate(-50%,-50%) scale(1.6); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div style="display:flex;align-items:center;gap:20px;">
+    <div style="display:flex;gap:3px;">
+      <div style="width:9px;height:9px;border-radius:50%;background:#E74C3C;"></div>
+      <div style="width:9px;height:9px;border-radius:50%;background:#27AE60;"></div>
+      <div style="width:9px;height:9px;border-radius:50%;background:#3498DB;"></div>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:#FFFFFF;letter-spacing:1px;">Route</div>
+    <div class="divider"></div>
+    <div class="tag">SLA Intelligence Platform · v4.0</div>
+    <div class="ai-chip">✦ AI + Traffic Aware</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:20px;">
+    <div style="text-align:right;">
+      <div class="tag">REPORTING PERIOD</div>
+      <div style="font-size:11px;color:#C8C6BE;margin-top:1px;">01 Jun 2026 → 24 Jun 2026 · 22 Stations · MOE</div>
+    </div>
+    <div class="divider"></div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div class="dot-live"></div>
+      <span style="font-size:10px;color:#27AE60;">LIVE · 06:14 AM</span>
+    </div>
+  </div>
+</div>
+
+<div style="padding:14px 24px;display:flex;flex-direction:column;gap:14px;">
+
+  <!-- AI BANNER -->
+  <div style="background:linear-gradient(135deg,#0D1018,#0F1420);border:1px solid #1E2130;border-left:3px solid #E74C3C;border-radius:10px;padding:14px 20px;display:flex;align-items:flex-start;gap:14px;">
+    <div style="background:#E74C3C15;border:1px solid #E74C3C33;border-radius:8px;padding:10px;flex-shrink:0;text-align:center;">
+      <div style="font-size:20px;">🤖</div>
+      <div style="font-size:8px;color:#E74C3C;margin-top:2px;letter-spacing:1px;">CLAUDE</div>
+    </div>
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
+        <span class="tag" style="color:#E74C3C;">AI BREACH + TRAFFIC ANALYST</span>
+        <span class="tag">CLAUDE CLAUDE-SONNET-4-6 · ANTHROPIC · 06:14 AM</span>
+        <div class="ai-chip">✦ TRAFFIC-CORRELATED ANALYSIS</div>
+      </div>
+      <div style="font-size:12px;color:#C8C6BE;line-height:1.8;">
+        <span style="color:#FFFFFF;font-weight:500;">901 - Al Hail</span> leads with 7 critical routes — <span style="color:#E74C3C;">traffic density analysis confirms a HIGH congestion corridor</span> between 06:30–07:45 AM near the industrial zone, directly overlapping with 5 of the 7 breached routes. Rerouting via Sheikh Mohammed Bin Zayed Road could reduce avg duration by an estimated 12–15 mins.
+        <span style="color:#27AE60;"> 205 - Mosafah 2 recovery is traffic-validated</span> — the replanned routes now avoid the Abu Dhabi–Al Ain highway peak window.
+        <span style="color:#F39C12;"> 902 - Dibba Al Fujairah</span> breach pattern correlates with a <span style="color:#FFFFFF;">new construction diversion</span> active since 15 Jun on E89 — a temporary root cause that should self-resolve by July.
+      </div>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <div class="tag" style="margin-bottom:4px;">TRAFFIC CORRELATION</div>
+      <div style="font-size:22px;font-weight:300;color:#F39C12;">87%</div>
+      <div style="font-size:9px;color:#444B5A;margin-top:2px;">of breaches overlap<br>high-traffic windows</div>
+    </div>
+  </div>
+
+  <!-- SLICER BAR -->
+  <div class="slicer-bar">
+    <div class="slicer-group">
+      <span class="slicer-label">VIEW</span>
+      <button class="slicer-btn active" onclick="setSlicer(this,'.view-group')">🔴 Critical</button>
+      <button class="slicer-btn" onclick="setSlicer(this,'.view-group')">🟡 All Breached</button>
+    </div>
+    <div class="divider"></div>
+    <div class="slicer-group">
+      <span class="slicer-label">DIRECTION</span>
+      <button class="slicer-btn active-green" onclick="setSlicer(this,'.dir-group')">All</button>
+      <button class="slicer-btn" onclick="setSlicer(this,'.dir-group')">↑ AM</button>
+      <button class="slicer-btn" onclick="setSlicer(this,'.dir-group')">↓ PM</button>
+    </div>
+    <div class="divider"></div>
+    <div class="slicer-group">
+      <span class="slicer-label">ROUTE TYPE</span>
+      <button class="slicer-btn active-green" onclick="setSlicer(this,'.type-group')">All MOE</button>
+      <button class="slicer-btn" onclick="setSlicer(this,'.type-group')">Regular</button>
+      <button class="slicer-btn" onclick="setSlicer(this,'.type-group')">KG</button>
+    </div>
+    <div class="divider"></div>
+    <div class="slicer-group">
+      <span class="slicer-label">TRAFFIC</span>
+      <button class="slicer-btn active-green" onclick="setSlicer(this,'.traffic-group')">All</button>
+      <button class="slicer-btn" onclick="setSlicer(this,'.traffic-group')" style="color:#E74C3C;border-color:#E74C3C44;">🔴 High</button>
+      <button class="slicer-btn" onclick="setSlicer(this,'.traffic-group')" style="color:#F39C12;border-color:#F39C1244;">🟡 Medium</button>
+      <button class="slicer-btn" onclick="setSlicer(this,'.traffic-group')" style="color:#27AE60;border-color:#27AE6044;">🟢 Low</button>
+    </div>
+    <div class="divider"></div>
+    <div class="slicer-group">
+      <span class="slicer-label">PERIOD</span>
+      <button class="slicer-btn" onclick="setSlicer(this,'.period-group')">7d</button>
+      <button class="slicer-btn active-blue" onclick="setSlicer(this,'.period-group')">Jun 26</button>
+      <button class="slicer-btn" onclick="setSlicer(this,'.period-group')">YTD</button>
+    </div>
+  </div>
+
+  <!-- KPI ROW -->
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;">
+    <div class="kpi-card active-red" onclick="highlightKpi(this,'red')">
+      <div class="kpi-label" style="color:#E74C3C;">CRITICAL ROUTES</div>
+      <div class="kpi-num">18</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:36%;background:#E74C3C;box-shadow:0 0 5px #E74C3C66;"></div></div>
+      <div class="kpi-sub" style="color:#E74C3C;">↑ 3 vs last week</div>
+    </div>
+    <div class="kpi-card" onclick="highlightKpi(this,'amber')">
+      <div class="kpi-label" style="color:#F39C12;">TOTAL BREACHED</div>
+      <div class="kpi-num">745</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:62%;background:#F39C12;"></div></div>
+      <div class="kpi-sub" style="color:#27AE60;">↓ 12% vs last week</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:#3498DB;">STATIONS AFFECTED</div>
+      <div class="kpi-num">7<span style="font-size:13px;color:#444B5A;"> /22</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:32%;background:#3498DB;"></div></div>
+      <div class="kpi-sub" style="color:#444B5A;">31.8% of network</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:#27AE60;">SLA COMPLIANCE</div>
+      <div class="kpi-num">94<span style="font-size:13px;color:#444B5A;">%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:94%;background:#27AE60;box-shadow:0 0 5px #27AE6066;"></div></div>
+      <div class="kpi-sub" style="color:#27AE60;">↑ 2% vs last week</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:#9B59B6;">AVG OVERRUN</div>
+      <div class="kpi-num">+16<span style="font-size:13px;color:#444B5A;">m</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:53%;background:#9B59B6;"></div></div>
+      <div class="kpi-sub" style="color:#E74C3C;">↑ 2m vs last week</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label" style="color:#F39C12;">TRAFFIC-CAUSED BREACHES</div>
+      <div class="kpi-num">87<span style="font-size:13px;color:#444B5A;">%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:87%;background:#F39C12;box-shadow:0 0 5px #F39C1266;"></div></div>
+      <div class="kpi-sub" style="color:#F39C12;">correlated to peak hours</div>
+    </div>
+  </div>
+
+  <!-- ROW 1: Heat Map + Trend + Direction -->
+  <div style="display:grid;grid-template-columns:1.8fr 1fr 0.8fr;gap:14px;">
+
+    <!-- Breach Heat Map -->
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+        <div>
+          <div class="tag" style="margin-bottom:3px;">BREACH HEAT MAP</div>
+          <div class="panel-title">Route × Date · Critical Routes Only</div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:9px;color:#444B5A;align-items:center;flex-wrap:wrap;">
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:1px;background:#E74C3C;margin-right:3px;vertical-align:middle;"></span>Breach</span>
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:1px;background:#27AE6055;margin-right:3px;vertical-align:middle;"></span>Clear</span>
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:1px;background:#F39C1255;margin-right:3px;vertical-align:middle;"></span>High Traffic</span>
+        </div>
+      </div>
+      <div id="heatmap" style="overflow-x:auto;"></div>
+    </div>
+
+    <!-- Trend -->
+    <div class="panel">
+      <div style="margin-bottom:12px;">
+        <div class="tag" style="margin-bottom:3px;">WEEKLY TREND</div>
+        <div class="panel-title">Critical Routes + AI Forecast</div>
+      </div>
+      <div style="position:relative;height:150px;">
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div style="margin-top:8px;padding:8px 10px;background:#0A0D14;border-radius:6px;border-left:2px solid #27AE60;">
+        <div style="font-size:9px;color:#27AE60;letter-spacing:1px;margin-bottom:2px;">🤖 AI FORECAST</div>
+        <div style="font-size:10px;color:#888780;line-height:1.6;">Projected <span style="color:#FFFFFF;">8 critical routes</span> by end of July at current velocity.</div>
+      </div>
+    </div>
+
+    <!-- Direction Doughnut -->
+    <div class="panel">
+      <div style="margin-bottom:12px;">
+        <div class="tag" style="margin-bottom:3px;">DIRECTION SPLIT</div>
+        <div class="panel-title">AM vs PM Breaches</div>
+      </div>
+      <div style="position:relative;height:130px;">
+        <canvas id="dirChart"></canvas>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px;">
+        <div style="flex:1;padding:7px;background:#0A0D14;border-radius:5px;text-align:center;">
+          <div style="font-size:9px;color:#444B5A;margin-bottom:1px;">AM</div>
+          <div style="font-size:15px;font-weight:300;color:#E74C3C;">68%</div>
+        </div>
+        <div style="flex:1;padding:7px;background:#0A0D14;border-radius:5px;text-align:center;">
+          <div style="font-size:9px;color:#444B5A;margin-bottom:1px;">PM</div>
+          <div style="font-size:15px;font-weight:300;color:#F39C12;">32%</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 2: Traffic Density + Correlation + Station Bars -->
+  <div style="display:grid;grid-template-columns:1.2fr 1.2fr 1fr;gap:14px;">
+
+    <!-- TRAFFIC DENSITY GRID -->
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+        <div>
+          <div class="tag" style="margin-bottom:3px;">TRAFFIC DENSITY · NEW</div>
+          <div class="panel-title">Breach Days × Peak Hour Window</div>
+          <div style="font-size:10px;color:#444B5A;margin-top:2px;">Darker = higher congestion during trip window</div>
+        </div>
+        <div class="badge badge-amber">Google Maps Traffic API</div>
+      </div>
+      <div id="trafficGrid" style="overflow-x:auto;"></div>
+      <div style="margin-top:10px;display:flex;gap:6px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:#444B5A;">
+          <div style="width:10px;height:10px;border-radius:2px;background:#27AE60;opacity:0.4;"></div>Low
+        </div>
+        <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:#444B5A;">
+          <div style="width:10px;height:10px;border-radius:2px;background:#F39C12;opacity:0.6;"></div>Medium
+        </div>
+        <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:#444B5A;">
+          <div style="width:10px;height:10px;border-radius:2px;background:#E74C3C;opacity:0.8;"></div>High
+        </div>
+        <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:#444B5A;">
+          <div style="width:10px;height:10px;border-radius:2px;background:#7D3C98;"></div>Severe
+        </div>
+      </div>
+    </div>
+
+    <!-- TRAFFIC vs BREACH SCATTER -->
+    <div class="panel">
+      <div style="margin-bottom:12px;">
+        <div class="tag" style="margin-bottom:3px;">CORRELATION ANALYSIS · NEW</div>
+        <div class="panel-title">Traffic Index vs Avg Trip Duration</div>
+        <div style="font-size:10px;color:#444B5A;margin-top:2px;">Each dot = one route. Size = overrun severity.</div>
+      </div>
+      <div style="position:relative;height:200px;">
+        <canvas id="scatterChart"></canvas>
+      </div>
+      <div style="margin-top:8px;padding:8px 10px;background:#0A0D14;border-radius:6px;">
+        <div style="font-size:9px;color:#F39C12;letter-spacing:1px;margin-bottom:2px;">🤖 CORRELATION INSIGHT</div>
+        <div style="font-size:10px;color:#888780;line-height:1.6;">Pearson r = <span style="color:#FFFFFF;font-weight:500;">0.87</span> — strong positive correlation between traffic index and trip duration on breach days.</div>
+      </div>
+    </div>
+
+    <!-- Station + Monthly -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="panel" style="flex:1;">
+        <div style="margin-bottom:10px;">
+          <div class="tag" style="margin-bottom:3px;">STATION RISK</div>
+          <div class="panel-title">Critical Routes per Station</div>
+        </div>
+        <div id="stationBars" style="display:flex;flex-direction:column;gap:7px;"></div>
+      </div>
+      <div class="panel">
+        <div style="margin-bottom:10px;">
+          <div class="tag" style="margin-bottom:3px;">MONTHLY TREND</div>
+          <div class="panel-title">Avg Weekly Critical · Jan–Jun</div>
+        </div>
+        <div style="position:relative;height:100px;">
+          <canvas id="monthlyChart"></canvas>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;">
+          <span style="font-size:10px;color:#444B5A;">Peak: <span style="color:#E74C3C;">Jan 21</span></span>
+          <span style="font-size:10px;color:#27AE60;">-75% reduction</span>
+          <span style="font-size:10px;color:#444B5A;">Jun: <span style="color:#27AE60;">5.3</span></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 3: Overrun Severity + Traffic Time Heatmap -->
+  <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:14px;">
+
+    <!-- Overrun Chart -->
+    <div class="panel">
+      <div style="margin-bottom:12px;">
+        <div class="tag" style="margin-bottom:3px;">OVERRUN SEVERITY</div>
+        <div class="panel-title">Avg Mins Over SLA · Critical Routes</div>
+      </div>
+      <div style="position:relative;height:220px;">
+        <canvas id="overrunChart"></canvas>
+      </div>
+    </div>
+
+    <!-- HOURLY TRAFFIC HEATMAP -->
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+        <div>
+          <div class="tag" style="margin-bottom:3px;">HOURLY TRAFFIC DENSITY · NEW</div>
+          <div class="panel-title">Peak Hours × Day of Week · Breach Period</div>
+          <div style="font-size:10px;color:#444B5A;margin-top:2px;">School bus operational window: 06:00–08:30 AM / 13:00–15:30 PM</div>
+        </div>
+      </div>
+      <div id="hourlyTraffic" style="overflow-x:auto;"></div>
+      <div style="margin-top:10px;padding:8px 10px;background:#0A0D14;border-radius:6px;display:flex;gap:16px;align-items:center;">
+        <div>
+          <div style="font-size:9px;color:#E74C3C;letter-spacing:1px;margin-bottom:1px;">HIGHEST RISK WINDOW</div>
+          <div style="font-size:11px;color:#FFFFFF;font-weight:500;">Mon–Thu · 06:45–07:30 AM</div>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <div style="font-size:9px;color:#27AE60;letter-spacing:1px;margin-bottom:1px;">SAFEST WINDOW</div>
+          <div style="font-size:11px;color:#FFFFFF;font-weight:500;">Fri · 13:00–14:00 PM</div>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <div style="font-size:9px;color:#F39C12;letter-spacing:1px;margin-bottom:1px;">RECOMMENDATION</div>
+          <div style="font-size:11px;color:#C8C6BE;">Shift AM departures 15 mins earlier</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- EXPANDABLE BREACH DETAIL -->
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div>
+        <div class="tag" style="margin-bottom:3px;">BREACH DETAIL · STATION → SCHOOL → ROUTE</div>
+        <div class="panel-title">Expand to drill down · Traffic density shown per route</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="badge badge-red">18 critical routes</span>
+        <button class="slicer-btn" onclick="expandAll()">Expand All</button>
+        <button class="slicer-btn" onclick="collapseAll()">Collapse</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:2fr 0.7fr 0.7fr 1.2fr 0.7fr 0.8fr 0.8fr 0.7fr;gap:0;padding:6px 14px;background:#070A10;border-radius:6px;margin-bottom:8px;">
+      <div class="tag">STATION / SCHOOL / ROUTE</div>
+      <div class="tag">TYPE</div>
+      <div class="tag">TRAFFIC</div>
+      <div class="tag">BREACHED DATES</div>
+      <div class="tag">BUS NO(S)</div>
+      <div class="tag">AVG DURATION</div>
+      <div class="tag">OVERRUN</div>
+      <div class="tag">ROOT CAUSE</div>
+    </div>
+
+    <div id="breach-detail"></div>
+  </div>
+
+  <!-- Footer -->
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 8px;">
+    <span style="font-size:9px;color:#1E2130;letter-spacing:1px;">ET · Route 2026 · CONFIDENTIAL · INTERNAL USE ONLY</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:9px;color:#1E2130;">AI: Claude claude-sonnet-4-6 · Traffic: Google Maps API · Data: Oracle ADW</span>
+      <div class="dot-live"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── SLICER ────────────────────────────────────────────────────────────
+function setSlicer(btn, group) {
+  btn.closest('.slicer-group').querySelectorAll('.slicer-btn').forEach(b => {
+    b.className = 'slicer-btn';
+  });
+  btn.className = btn.className.includes('active') ? btn.className : 'slicer-btn active-green';
+  btn.classList.add('active-green');
+}
+function highlightKpi(card) {
+  document.querySelectorAll('.kpi-card').forEach(c => c.className='kpi-card');
+  card.classList.add('active-red');
+}
+
+// ── HEAT MAP ──────────────────────────────────────────────────────────
+const hmRoutes = [
+  {r:'AH-KG-001',kg:true}, {r:'AH-KG-003',kg:true}, {r:'AH-KG-005',kg:true},
+  {r:'AH-KG-007',kg:true}, {r:'AH-KG-009',kg:true}, {r:'AH-KG-011',kg:true},
+  {r:'AH-KG-013',kg:true}, {r:'MZ-004-KG',kg:true}, {r:'ALAIN-007',kg:false},
+  {r:'ALAIN-003',kg:false}, {r:'DF-MOE-002',kg:false},{r:'DF-MOE-004',kg:false},
+  {r:'DF-MOE-006',kg:false},{r:'SHA-001',kg:false},  {r:'AZ-001',kg:false},
+  {r:'NAK-001',kg:false},  {r:'DH-001',kg:false},   {r:'MZ-002',kg:false},
+];
+const hmDates  = ['11','12','13','14','15','18','19','20','22','23','24'];
+// 0=no trip, 1=clear, 2=breach normal, 3=breach+high traffic
+const hmMatrix = [
+  [3,3,3,3,3,3,3,3,3,3,3],
+  [1,3,3,3,3,3,3,3,3,3,2],
+  [0,3,3,3,3,3,3,3,3,3,3],
+  [3,3,3,3,3,3,3,3,3,3,3],
+  [3,0,3,3,3,3,3,3,3,3,3],
+  [3,3,3,3,3,3,3,3,3,3,2],
+  [3,3,3,3,3,3,3,3,3,3,3],
+  [2,2,2,0,2,2,2,2,2,2,0],
+  [0,2,2,2,2,2,2,2,2,2,2],
+  [0,0,2,2,2,2,2,2,2,2,0],
+  [2,2,2,2,2,0,2,2,2,2,2],
+  [2,2,2,2,2,2,2,2,2,2,2],
+  [0,2,2,2,2,2,2,2,2,2,2],
+  [2,2,2,2,0,2,2,2,2,2,2],
+  [0,2,2,2,2,2,2,2,2,0,2],
+  [2,2,2,2,2,2,2,0,2,2,2],
+  [2,2,0,2,2,2,2,2,2,2,2],
+  [0,0,2,2,2,2,2,2,2,2,0],
+];
+(function(){
+  const colorMap = {0:'#070A10',1:'#27AE6033',2:'#E74C3C33',3:'#7D3C9855'};
+  const dotMap   = {
+    0: `<div style="width:9px;height:9px;border-radius:1px;background:#1E2130;margin:auto;opacity:0.2;"></div>`,
+    1: `<div style="width:9px;height:9px;border-radius:1px;background:#27AE60;margin:auto;opacity:0.7;"></div>`,
+    2: `<div style="width:9px;height:9px;border-radius:1px;background:#E74C3C;margin:auto;box-shadow:0 0 4px #E74C3C66;"></div>`,
+    3: `<div style="width:9px;height:9px;border-radius:1px;background:#7D3C98;margin:auto;box-shadow:0 0 5px #7D3C9888;"></div>`,
+  };
+  let h = '<table style="border-collapse:collapse;width:100%;font-size:9px;">';
+  h += '<tr><th style="padding:3px 8px;text-align:left;color:#444B5A;font-weight:400;min-width:100px;"></th>'
+    + hmDates.map(d=>`<th style="padding:3px 4px;text-align:center;color:#444B5A;font-weight:400;min-width:24px;">${d}</th>`).join('') + '</tr>';
+  hmRoutes.forEach(({r,kg},i)=>{
+    h += `<tr><td style="padding:3px 8px;color:${kg?'#9B59B6':'#888780'};white-space:nowrap;">${r}</td>`;
+    hmMatrix[i].forEach(v=>{ h += `<td style="padding:2px;background:${colorMap[v]};text-align:center;">${dotMap[v]}</td>`; });
+    h += '</tr>';
+  });
+  h += '</table>';
+  document.getElementById('heatmap').innerHTML = h;
+})();
+
+// ── TRAFFIC DENSITY GRID ─────────────────────────────────────────────
+(function(){
+  const stations = ['901-Al Hail','902-Dibba','205-Mosafah','206-Shahama','601-Azrah','702-Nakheel','801-Dhait'];
+  const dates    = ['11 Jun','12 Jun','13 Jun','14 Jun','15 Jun','18 Jun','19 Jun','20 Jun','22 Jun','23 Jun'];
+  // 1=low,2=med,3=high,4=severe
+  const tMatrix  = [
+    [4,4,4,3,4,4,4,3,4,4],
+    [2,3,3,3,2,2,3,3,3,3],
+    [2,2,3,2,2,2,2,2,2,2],
+    [2,2,2,2,1,2,2,2,2,2],
+    [1,2,2,2,2,2,2,2,1,2],
+    [1,1,2,2,2,2,2,1,2,2],
+    [2,2,1,2,2,2,2,2,2,2],
+  ];
+  const colorMap = ['','#27AE60','#F39C12','#E74C3C','#7D3C98'];
+  const labelMap = ['','LOW','MED','HIGH','SEV'];
+  let h = '<table style="border-collapse:collapse;font-size:9px;">';
+  h += '<tr><th style="padding:3px 8px;text-align:left;color:#444B5A;font-weight:400;min-width:100px;"></th>'
+    + dates.map(d=>`<th style="padding:3px 4px;text-align:center;color:#444B5A;font-weight:400;min-width:46px;">${d}</th>`).join('') + '</tr>';
+  stations.forEach((s,i)=>{
+    h += `<tr><td style="padding:4px 8px;color:#888780;white-space:nowrap;font-size:9px;">${s}</td>`;
+    tMatrix[i].forEach(v=>{
+      const alpha = v===4?'1':v===3?'0.8':v===2?'0.5':'0.35';
+      h += `<td style="padding:3px 4px;text-align:center;">
+        <div style="background:${colorMap[v]};opacity:${alpha};border-radius:3px;padding:3px 4px;font-size:8px;color:#0A0D14;font-weight:700;">${labelMap[v]}</div>
+      </td>`;
+    });
+    h += '</tr>';
+  });
+  h += '</table>';
+  document.getElementById('trafficGrid').innerHTML = h;
+})();
+
+// ── HOURLY TRAFFIC HEATMAP ───────────────────────────────────────────
+(function(){
+  const hours = ['06:00','06:30','07:00','07:30','08:00','08:30','13:00','13:30','14:00','14:30','15:00','15:30'];
+  const days  = ['Mon','Tue','Wed','Thu','Fri'];
+  // 1-4 traffic level
+  const hMatrix = [
+    [2,3,4,4,3,2,2,2,3,2,2,1],
+    [2,3,4,4,3,2,2,2,3,2,2,1],
+    [2,3,4,3,3,2,2,2,3,2,2,1],
+    [2,3,4,4,3,2,2,3,3,3,2,1],
+    [1,2,2,2,2,1,1,1,2,1,1,1],
+  ];
+  const colorMap=['','#27AE60','#F39C12','#E74C3C','#7D3C98'];
+  const opMap   =['','0.4','0.6','0.8','1'];
+  let h = '<table style="border-collapse:collapse;font-size:9px;">';
+  h += '<tr><th style="padding:3px 8px;text-align:left;color:#444B5A;font-weight:400;min-width:40px;"></th>'
+    + hours.map(hr=>`<th style="padding:3px 5px;text-align:center;color:#444B5A;font-weight:400;min-width:42px;font-size:8px;">${hr}</th>`).join('') + '</tr>';
+  days.forEach((d,i)=>{
+    h += `<tr><td style="padding:4px 8px;color:#888780;">${d}</td>`;
+    hMatrix[i].forEach(v=>{
+      h += `<td style="padding:3px 5px;text-align:center;">
+        <div style="background:${colorMap[v]};opacity:${opMap[v]};border-radius:3px;height:22px;"></div>
+      </td>`;
+    });
+    h += '</tr>';
+  });
+  h += '</table>';
+  document.getElementById('hourlyTraffic').innerHTML = h;
+})();
+
+// ── CHARTS ────────────────────────────────────────────────────────────
+const gridC = 'rgba(255,255,255,0.03)';
+const tickC = '#444B5A';
+
+// Trend
+new Chart(document.getElementById('trendChart'),{
+  type:'line',
+  data:{
+    labels:['W2','W3','W4','W5','W6','W7','W8','W9','W10','W11','W12','W23','W24','W25'],
+    datasets:[
+      {label:'Actual',data:[21,19,22,18,17,16,15,14,14,13,12,8,6,5],
+       borderColor:'#E74C3C',backgroundColor:'rgba(231,76,60,0.06)',
+       borderWidth:2,pointRadius:2.5,pointBackgroundColor:'#E74C3C',tension:0.4,fill:true},
+      {label:'Forecast',data:[null,null,null,null,null,null,null,null,null,null,null,null,5,4,3,2],
+       borderColor:'#27AE60',backgroundColor:'transparent',
+       borderWidth:1.5,borderDash:[4,3],pointRadius:2,pointBackgroundColor:'#27AE60',tension:0.4}
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:gridC},ticks:{color:tickC,font:{size:8}}},
+            y:{beginAtZero:true,grid:{color:gridC},ticks:{color:tickC,font:{size:8},stepSize:5}}}}
+});
+
+// Direction
+new Chart(document.getElementById('dirChart'),{
+  type:'doughnut',
+  data:{labels:['AM (Home→School)','PM (School→Home)'],
+    datasets:[{data:[68,32],
+      backgroundColor:['#E74C3C33','#F39C1233'],
+      borderColor:['#E74C3C','#F39C12'],borderWidth:1.5}]},
+  options:{responsive:true,maintainAspectRatio:false,cutout:'72%',
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed}%`}}}}
+});
+
+// Station bars
+const stData=[
+  {name:'901 - Al Hail',count:7,color:'#E74C3C'},
+  {name:'902 - Dibba',count:4,color:'#E74C3C'},
+  {name:'205 - Mosafah 2',count:3,color:'#F39C12'},
+  {name:'206 - Al Shahama',count:1,color:'#3498DB'},
+  {name:'601 - Al Azrah',count:1,color:'#3498DB'},
+  {name:'702 - Al Nakheel',count:1,color:'#3498DB'},
+  {name:'801 - Al Dhait',count:1,color:'#3498DB'},
+];
+const maxC=7;
+const sbEl=document.getElementById('stationBars');
+stData.forEach(s=>{
+  sbEl.innerHTML+=`<div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+      <span style="font-size:10px;color:#888780;">${s.name}</span>
+      <span style="font-size:10px;color:${s.color};font-weight:600;">${s.count}</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width:${(s.count/maxC)*100}%;background:${s.color};box-shadow:0 0 4px ${s.color}55;"></div>
+    </div>
+  </div>`;
+});
+
+// Monthly
+new Chart(document.getElementById('monthlyChart'),{
+  type:'bar',
+  data:{labels:['Jan','Feb','Mar','Apr','May','Jun'],
+    datasets:[{data:[20,15.5,12.5,9.3,7,5.3],
+      backgroundColor:['#E74C3C33','#E74C3C22','#F39C1222','#F39C1222','#27AE6022','#27AE6033'],
+      borderColor:['#E74C3C','#E74C3C','#F39C12','#F39C12','#27AE60','#27AE60'],
+      borderWidth:1.5,borderSkipped:false,borderRadius:3}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{display:false},ticks:{color:tickC,font:{size:8}}},
+            y:{beginAtZero:true,grid:{color:gridC},ticks:{color:tickC,font:{size:8},stepSize:5}}}}
+});
+
+// Overrun
+new Chart(document.getElementById('overrunChart'),{
+  type:'bar',
+  data:{labels:['AH-KG-007','AH-KG-001','AH-KG-009','DF-004','AH-KG-003','MZ-004-KG','ALAIN-007','DF-002'],
+    datasets:[{data:[24,22,21,19,18,14,12,10],
+      backgroundColor:['#E74C3C33','#E74C3C33','#E74C3C33','#F39C1233','#E74C3C33','#F39C1233','#F39C1233','#3498DB33'],
+      borderColor:['#E74C3C','#E74C3C','#E74C3C','#F39C12','#E74C3C','#F39C12','#F39C12','#3498DB'],
+      borderWidth:1.5,borderSkipped:false,borderRadius:3}]},
+  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`+${c.parsed.x} mins over SLA`}}},
+    scales:{x:{grid:{color:gridC},ticks:{color:tickC,font:{size:8}},
+               title:{display:true,text:'mins over SLA',color:tickC,font:{size:8}}},
+            y:{grid:{display:false},ticks:{color:tickC,font:{size:8}}}}}
+});
+
+// Scatter: Traffic Index vs Avg Duration
+new Chart(document.getElementById('scatterChart'),{
+  type:'scatter',
+  data:{
+    datasets:[
+      {label:'KG Routes',data:[
+        {x:92,y:67},{x:88,y:63},{x:95,y:69},{x:89,y:66},{x:91,y:61},{x:87,y:58},{x:90,y:57},{x:72,y:59}
+      ],backgroundColor:'#9B59B666',borderColor:'#9B59B6',pointRadius:7,pointHoverRadius:10},
+      {label:'MOE Regular',data:[
+        {x:65,y:74},{x:71,y:79},{x:68,y:71},{x:62,y:68},{x:74,y:74},{x:55,y:68},{x:60,y:65},{x:58,y:67}
+      ],backgroundColor:'#E74C3C66',borderColor:'#E74C3C',pointRadius:6,pointHoverRadius:9},
+    ]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{
+      label:c=>`Traffic: ${c.parsed.x} · Duration: ${c.parsed.y} mins`
+    }}},
+    scales:{
+      x:{grid:{color:gridC},ticks:{color:tickC,font:{size:8}},
+         title:{display:true,text:'Traffic Congestion Index (0-100)',color:tickC,font:{size:9}}},
+      y:{grid:{color:gridC},ticks:{color:tickC,font:{size:8}},
+         title:{display:true,text:'Avg Trip Duration (mins)',color:tickC,font:{size:9}}}
+    }
+  }
+});
+
+// ── BREACH DETAIL ─────────────────────────────────────────────────────
+const breachData=[
+  {
+    station:'901 - Al Hail',count:7,traffic:'SEVERE',trafficColor:'#7D3C98',
+    aiNote:'Geographic bottleneck confirmed near industrial zone — 5 of 7 routes share overlapping corridor. AM peak 06:45–07:30 shows congestion index >90. Rerouting via SMBZ Road estimated to save 12–15 mins.',
+    schools:[
+      {code:'3018',name:'Al Hail Primary',routes:[
+        {name:'AH-KG-001',type:'MOE·KG',traffic:'SEVERE',trafficColor:'#7D3C98',dates:'18·19·20·22·23 Jun',buses:'B-4421·B-4422',avg:67,sla:45,cause:'Peak hour congestion'},
+        {name:'AH-KG-003',type:'MOE·KG',traffic:'HIGH',  trafficColor:'#E74C3C',dates:'17·18·19·22·23 Jun',buses:'B-4418',avg:63,sla:45,cause:'Route overlap with AH-001'},
+        {name:'AH-KG-005',type:'MOE·KG',traffic:'SEVERE',trafficColor:'#7D3C98',dates:'18·19·20·22·24 Jun',buses:'B-4430',avg:61,sla:45,cause:'Industrial zone access'},
+      ]},
+      {code:'3024',name:'Al Hail Secondary',routes:[
+        {name:'AH-KG-007',type:'MOE·KG',traffic:'SEVERE',trafficColor:'#7D3C98',dates:'15·18·19·20·22 Jun',buses:'B-4411',avg:69,sla:45,cause:'Peak hour congestion'},
+        {name:'AH-KG-009',type:'MOE·KG',traffic:'HIGH',  trafficColor:'#E74C3C',dates:'18·19·22·23·24 Jun',buses:'B-4415·B-4416',avg:66,sla:45,cause:'Peak hour congestion'},
+        {name:'AH-KG-011',type:'MOE·KG',traffic:'HIGH',  trafficColor:'#E74C3C',dates:'17·18·19·22·23 Jun',buses:'B-4409',avg:58,sla:45,cause:'Long stop sequence'},
+        {name:'AH-KG-013',type:'MOE·KG',traffic:'HIGH',  trafficColor:'#E74C3C',dates:'16·17·18·19·22 Jun',buses:'B-4433',avg:57,sla:45,cause:'Peak hour congestion'},
+      ]}
+    ]
+  },
+  {
+    station:'902 - Dibba Al Fujairah',count:4,traffic:'MEDIUM',trafficColor:'#F39C12',
+    aiNote:'NEW entrant. Breach pattern correlates with E89 road diversion active since 15 Jun — temporary construction root cause, expected to resolve by July. Monitor but low replanning priority vs Al Hail.',
+    schools:[
+      {code:'4012',name:'Dibba MOE Primary',routes:[
+        {name:'DF-MOE-002',type:'MOE',traffic:'MEDIUM',trafficColor:'#F39C12',dates:'18·19·20·22·23 Jun',buses:'B-7701',avg:74,sla:60,cause:'E89 diversion (temp)'},
+        {name:'DF-MOE-004',type:'MOE',traffic:'HIGH',  trafficColor:'#E74C3C',dates:'17·18·19·22·23 Jun',buses:'B-7704·B-7705',avg:79,sla:60,cause:'E89 diversion (temp)'},
+        {name:'DF-MOE-006',type:'MOE',traffic:'MEDIUM',trafficColor:'#F39C12',dates:'18·19·22·23·24 Jun',buses:'B-7708',avg:71,sla:60,cause:'E89 diversion (temp)'},
+        {name:'DF-MOE-008',type:'MOE',traffic:'MEDIUM',trafficColor:'#F39C12',dates:'15·18·19·22·23 Jun',buses:'B-7712',avg:68,sla:60,cause:'E89 diversion (temp)'},
+      ]}
+    ]
+  },
+  {
+    station:'205 - Mosafah 2',count:3,traffic:'MEDIUM',trafficColor:'#F39C12',
+    aiNote:'Strong recovery — 18 → 3 routes week-on-week. Replanning avoiding Abu Dhabi-Al Ain highway AM peak is validated by traffic data. Remaining 3 routes are in a single school corridor.',
+    schools:[
+      {code:'1087',name:'Mosafah 2 National',routes:[
+        {name:'MZ-004-KG',type:'MOE·KG',traffic:'MEDIUM',trafficColor:'#F39C12',dates:'19·20·22·23·24 Jun',buses:'B-2201',avg:59,sla:45,cause:'Residual congestion'},
+        {name:'MZ-002',   type:'MOE',   traffic:'MEDIUM',trafficColor:'#F39C12',dates:'18·19·20·22·23 Jun',buses:'B-2204·B-2205',avg:74,sla:60,cause:'Stop sequence length'},
+        {name:'MZ-007',   type:'MOE',   traffic:'LOW',   trafficColor:'#27AE60',dates:'17·18·19·22·23 Jun',buses:'B-2208',avg:66,sla:60,cause:'Driver schedule overlap'},
+      ]}
+    ]
+  },
+  {
+    station:'206 - Al Shahama',count:1,traffic:'LOW',trafficColor:'#27AE60',
+    aiNote:'Isolated single-route breach. Traffic index low — likely operational root cause rather than congestion. Check driver schedule and stop timings.',
+    schools:[{code:'1024',name:'Al Shahama Primary',routes:[
+      {name:'SHA-MOE-001',type:'MOE',traffic:'LOW',trafficColor:'#27AE60',dates:'18·19·20·22·23 Jun',buses:'B-3301',avg:71,sla:60,cause:'Stop timing issue'},
+    ]}]
+  },
+  {
+    station:'601 - Al Azrah',count:1,traffic:'LOW',trafficColor:'#27AE60',
+    aiNote:'Isolated. Monitor only.',
+    schools:[{code:'2031',name:'Al Azrah School',routes:[
+      {name:'AZ-MOE-001',type:'MOE',traffic:'LOW',trafficColor:'#27AE60',dates:'17·18·19·22·23 Jun',buses:'B-5501',avg:68,sla:60,cause:'Route length'},
+    ]}]
+  },
+  {
+    station:'702 - Al Nakheel',count:1,traffic:'LOW',trafficColor:'#27AE60',
+    aiNote:'Isolated. Monitor only.',
+    schools:[{code:'2044',name:'Al Nakheel Inst.',routes:[
+      {name:'NAK-MOE-001',type:'MOE',traffic:'LOW',trafficColor:'#27AE60',dates:'18·19·22·23·24 Jun',buses:'B-6601',avg:65,sla:60,cause:'Peak hour overlap'},
+    ]}]
+  },
+  {
+    station:'801 - Al Dhait (M)',count:1,traffic:'LOW',trafficColor:'#27AE60',
+    aiNote:'Isolated. Monitor only.',
+    schools:[{code:'2058',name:'Al Dhait Primary',routes:[
+      {name:'DH-MOE-001',type:'MOE',traffic:'LOW',trafficColor:'#27AE60',dates:'15·18·19·22·23 Jun',buses:'B-6701',avg:67,sla:60,cause:'Stop sequence'},
+    ]}]
+  }
+];
+
+function buildBreachDetail() {
+  const container = document.getElementById('breach-detail');
+  container.innerHTML = '';
+  breachData.forEach((st, si) => {
+    const isHigh = st.count >= 5;
+    const isMed  = st.count >= 3 && st.count < 5;
+    const stColor = isHigh ? '#E74C3C' : isMed ? '#F39C12' : '#3498DB';
+    const div = document.createElement('div');
+    div.className = 'station-row';
+    div.id = `st-${si}`;
+
+    const avgOver = Math.round(
+      st.schools.flatMap(sc=>sc.routes).reduce((a,r)=>a+(r.avg-r.sla),0) /
+      st.schools.flatMap(sc=>sc.routes).length
+    );
+
+    div.innerHTML = `
+      <div class="station-header" onclick="toggleStation(${si})">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span id="st-arrow-${si}" style="color:#444B5A;font-size:10px;transition:transform 0.2s;">▶</span>
+          <span style="font-size:13px;font-weight:600;color:#FFFFFF;">${st.station}</span>
+          <span class="badge" style="background:${stColor}22;color:${stColor};border:1px solid ${stColor}44;">${st.count} critical</span>
+          <span class="badge" style="background:${st.trafficColor}22;color:${st.trafficColor};border:1px solid ${st.trafficColor}44;">🚦 ${st.traffic} TRAFFIC</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="text-align:right;"><div class="tag">SCHOOLS</div><div style="font-size:12px;color:#C8C6BE;">${st.schools.length}</div></div>
+          <div style="text-align:right;"><div class="tag">ROUTES</div><div style="font-size:12px;color:${stColor};">${st.count}</div></div>
+          <div style="text-align:right;"><div class="tag">AVG OVERRUN</div><div style="font-size:12px;color:#E74C3C;">+${avgOver}m</div></div>
+        </div>
+      </div>
+      <div class="station-body" id="st-body-${si}">
+        <div style="padding:10px 14px;background:#070A10;border-top:1px solid #1E2130;display:flex;gap:12px;align-items:flex-start;">
+          <div style="flex:1;"><div style="font-size:9px;color:#27AE60;letter-spacing:1px;margin-bottom:2px;">🤖 AI + TRAFFIC ANALYSIS</div><div style="font-size:11px;color:#888780;line-height:1.6;">${st.aiNote}</div></div>
+        </div>
+        ${st.schools.map((sc,sci)=>`
+          <div class="school-row">
+            <div class="school-header" onclick="toggleSchool(${si},${sci})">
+              <span id="sc-arrow-${si}-${sci}" style="color:#444B5A;font-size:9px;transition:transform 0.2s;">▶</span>
+              <span style="font-size:11px;color:#C8C6BE;font-weight:500;">🏫 ${sc.code} – ${sc.name}</span>
+              <span class="badge badge-amber">${sc.routes.length} route(s)</span>
+            </div>
+            <div class="school-body" id="sc-body-${si}-${sci}">
+              <table class="route-table">
+                <thead><tr>
+                  <th>ROUTE</th>
+                  <th style="padding-left:10px;">TYPE</th>
+                  <th style="padding-left:10px;">TRAFFIC</th>
+                  <th style="padding-left:10px;">BREACHED DATES</th>
+                  <th style="padding-left:10px;">BUS NO(S)</th>
+                  <th style="padding-left:10px;">AVG DURATION</th>
+                  <th style="padding-left:10px;">OVERRUN</th>
+                  <th style="padding-left:10px;">ROOT CAUSE</th>
+                </tr></thead>
+                <tbody>
+                  ${sc.routes.map(r=>{
+                    const over=r.avg-r.sla;
+                    const oc=over>20?'#E74C3C':over>10?'#F39C12':'#3498DB';
+                    return `<tr>
+                      <td style="color:#FFFFFF;font-weight:500;">${r.name}</td>
+                      <td style="padding-left:10px;"><span class="badge badge-blue">${r.type}</span></td>
+                      <td style="padding-left:10px;"><span class="badge" style="background:${r.trafficColor}22;color:${r.trafficColor};border:1px solid ${r.trafficColor}44;">🚦 ${r.traffic}</span></td>
+                      <td style="padding-left:10px;color:#888780;">${r.dates}</td>
+                      <td style="padding-left:10px;color:#9B59B6;">${r.buses}</td>
+                      <td style="padding-left:10px;"><span style="color:${oc};">${r.avg}m</span><span style="color:#444B5A;"> /SLA ${r.sla}m</span></td>
+                      <td style="padding-left:10px;"><span class="badge" style="background:${oc}22;color:${oc};border:1px solid ${oc}44;">+${over}m</span></td>
+                      <td style="padding-left:10px;color:#888780;font-size:10px;">${r.cause}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `).join('')}
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+function toggleStation(si) {
+  const body=document.getElementById(`st-body-${si}`);
+  const arrow=document.getElementById(`st-arrow-${si}`);
+  const row=document.getElementById(`st-${si}`);
+  const open=body.classList.contains('open');
+  body.classList.toggle('open',!open);
+  row.classList.toggle('expanded',!open);
+  arrow.style.transform=open?'':'rotate(90deg)';
+}
+function toggleSchool(si,sci) {
+  const body=document.getElementById(`sc-body-${si}-${sci}`);
+  const arrow=document.getElementById(`sc-arrow-${si}-${sci}`);
+  const open=body.classList.contains('open');
+  body.classList.toggle('open',!open);
+  arrow.style.transform=open?'':'rotate(90deg)';
+}
+function expandAll() {
+  breachData.forEach((_,si)=>{
+    document.getElementById(`st-body-${si}`).classList.add('open');
+    document.getElementById(`st-${si}`).classList.add('expanded');
+    document.getElementById(`st-arrow-${si}`).style.transform='rotate(90deg)';
+    breachData[si].schools.forEach((_,sci)=>{
+      document.getElementById(`sc-body-${si}-${sci}`).classList.add('open');
+      document.getElementById(`sc-arrow-${si}-${sci}`).style.transform='rotate(90deg)';
+    });
+  });
+}
+function collapseAll() {
+  breachData.forEach((_,si)=>{
+    document.getElementById(`st-body-${si}`).classList.remove('open');
+    document.getElementById(`st-${si}`).classList.remove('expanded');
+    document.getElementById(`st-arrow-${si}`).style.transform='';
+    breachData[si].schools.forEach((_,sci)=>{
+      document.getElementById(`sc-body-${si}-${sci}`).classList.remove('open');
+      document.getElementById(`sc-arrow-${si}-${sci}`).style.transform='';
+    });
+  });
+}
+buildBreachDetail();
+</script>
+</body>
+</html>
